@@ -88,6 +88,20 @@ async def test_start_instance(caplog):
     assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
 
 @pytest.mark.asyncio
+async def test_restart_instance(caplog):
+    user_id = "1234"
+    challenge_name = "buffer_overflow"
+    caplog.set_level(logging.INFO)
+    
+    for i in range(0,2):
+
+        await start_challenge(user_id, challenge_name, app)
+        assert_challenge_status(user_id, challenge_name,  b'{"state":"started"}')
+        
+        await stop_challenge(user_id, challenge_name, app)
+        assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
+
+@pytest.mark.asyncio
 async def test_start_two_challs(caplog):
     caplog.set_level(logging.INFO)
     
@@ -104,5 +118,69 @@ async def test_start_two_challs(caplog):
         assert_challenge_status(user_id, challenge_name, b'{"state":"started"}')
         await stop_challenge(user_id, challenge_name, app)
         assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
+
+# some negative tests
+@pytest.mark.asyncio
+async def test_nonexistent_challenge(caplog):
+    user_id = "1234"
+    challenge_name = "43986751345136903146"
+    expected_msg = bytes(f'["Challenge \'{challenge_name}\' not found"]', encoding='utf8')
+    caplog.set_level(logging.INFO)
+    auth = get_authentication()
+
+    response = client.get(f"/start/{user_id}/{challenge_name}", auth=auth)
+    assert response.content == expected_msg
+    assert response.status_code == 200
+
+    assert_challenge_status(user_id, challenge_name, expected_msg)
+    
+    response = client.get(f"/stop/{user_id}/{challenge_name}", auth=auth)
+    assert response.content == expected_msg
+    assert response.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_stopping_stopped_challenge(caplog):
+    user_id = "1234"
+    challenge_name = "buffer_overflow"
+    caplog.set_level(logging.INFO)
+    auth = get_authentication()
+    
+    response = client.get(f"/stop/{user_id}/{challenge_name}", auth=auth)
+    assert response.content == b'["not running"]'
+    assert response.status_code == 200
+    
+    assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
+
+@pytest.mark.asyncio
+async def test_starting_started_challenge(caplog):
+    user_id = "1234"
+    challenge_name = "buffer_overflow"
+    caplog.set_level(logging.INFO)
+
+    assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
+
+    await start_challenge(user_id, challenge_name, app)
+    assert_challenge_status(user_id, challenge_name,  b'{"state":"started"}')
+    
+    await start_challenge(user_id, challenge_name, app)
+    assert_challenge_status(user_id, challenge_name, b'{"state":"started"}')
+
+    await stop_challenge(user_id, challenge_name, app)
+    assert_challenge_status(user_id, challenge_name, b'{"state":"stopped"}')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
